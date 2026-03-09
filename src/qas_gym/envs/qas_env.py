@@ -92,9 +92,9 @@ class QuantumArchSearchEnv(gym.Env):
         self.observation_space = spaces.Dict({
             "expectations": spaces.Box(low=-1., high=1., shape=(len(state_observables),), dtype=np.float32),
             "gate_count": spaces.Discrete(self.max_timesteps + 1),
-            #"entanglement": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),
+            "entanglement": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),
             #"entanglement_t": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),
-            "entanglement_a": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),#duobite
+            #"entanglement_a": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),#duobite
             #"entanglement_b": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32)
         })
         self.action_space = spaces.Discrete(n=len(action_gates))
@@ -123,6 +123,7 @@ class QuantumArchSearchEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.circuit_gates = []
+        self.Flags = False
         #self.state = None
         #self.state_history = None
         #self.operation_history.clear()  # 清空操作历史
@@ -191,9 +192,9 @@ class QuantumArchSearchEnv(gym.Env):
         obs = {
             "expectations": expectations,
             "gate_count": int(gate_count),
-            #"entanglement": np.array([current_con], dtype=np.float32)
+            "entanglement": np.array([current_con], dtype=np.float32)
             #"entanglement_t": np.array([s_tot_norm], dtype=np.float32),
-            "entanglement_a": np.array([s_a_norm], dtype=np.float32),#(多比特只有这个A，没有B)
+            #"entanglement_a": np.array([s_a_norm], dtype=np.float32),#(多比特只有这个A，没有B)
             #"entanglement_b": np.array([s_b_norm], dtype=np.float32)
         }
 
@@ -232,8 +233,8 @@ class QuantumArchSearchEnv(gym.Env):
         observation = self._get_obs()
 
         # compute fidelity
-        #fidelity = self._get_fidelity()# qubit <= 3,ues it
-        fidelity = self.fidelity_measure()#多比特使用这个,qubit>3,ues it
+        fidelity = self._get_fidelity()# qubit <= 3,ues it
+        #fidelity = self.fidelity_measure()#多比特使用这个,qubit>3,ues it
 
         #diff_F = fidelity - self.previous_fidelity
         #cur_diff_E = abs(self.current_concurrence() - self.target_concurrence())
@@ -245,8 +246,8 @@ class QuantumArchSearchEnv(gym.Env):
         #self.state_history.append(np.copy(self.state))
         #penalty = self.calc_history_fidelity()
 
-        #target_con = self.target_concurrence()  # 3bit,use it
-        #current_con = self.current_concurrence()  # 3bit,use it
+        target_con = self.target_concurrence()  # 3bit,use it
+        current_con = self.current_concurrence()  # 3bit,use it
 
         # 初始化 entangle_list
         if not hasattr(self, 'entangle_list'):# Affect efficiency
@@ -270,10 +271,10 @@ class QuantumArchSearchEnv(gym.Env):
 
         max_gate_count = self.max_timesteps
         gate_count = len(self.circuit_gates)
-        #con_difference = abs(current_con - target_con)
-        s_tot_norm, s_a_norm, s_b_norm = self._get_renyi()#多比特加入这个
+        con_difference = abs(current_con - target_con)
+        #s_tot_norm, s_a_norm, s_b_norm = self._get_renyi()#多比特加入这个
         #con_difference = (abs(self.s_tot_norm_tar - s_tot_norm) + abs(self.s_a_norm_tar - s_a_norm) + abs(self.s_b_norm_tar - s_b_norm))/3.
-        con_difference = abs(self.s_a_norm_tar - s_a_norm)#（多比特只用计算这个一项）
+        #con_difference = abs(self.s_a_norm_tar - s_a_norm)#（多比特只用计算这个一项）
         #con_difference = self._mixed_state_ent_diff()
 
         gate_score = gate_count / max_gate_count
@@ -286,6 +287,7 @@ class QuantumArchSearchEnv(gym.Env):
         if fidelity >= self.fidelity_threshold:
             reward = (-1.5 * gate_score + fidelity * 2.2 + (1 - exploration_weight) * (
                         1 - con_difference))
+            self.Flags = True
         elif self.fidelity_threshold > fidelity >= exploration_threshold:
             reward = ((0.5 * (1 - exploration_weight) * fidelity - 1. * gate_score) - 1. + 0.5 * (
                         1 - exploration_weight) * (1 - con_difference)) * 0.5
@@ -301,7 +303,7 @@ class QuantumArchSearchEnv(gym.Env):
 
         # return info
         info = {'fidelity': fidelity, 'circuit': self._get_cirq(), 'concurrence_diff': con_difference, #current_con,
-                'goal_achieved': terminal, }
+                'goal_achieved': self.Flags, }
         return observation, reward, terminal, truncated, info
 
     def entangle(self, entangle_list):
