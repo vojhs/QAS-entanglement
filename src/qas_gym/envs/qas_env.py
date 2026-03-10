@@ -92,9 +92,9 @@ class QuantumArchSearchEnv(gym.Env):
         self.observation_space = spaces.Dict({
             "expectations": spaces.Box(low=-1., high=1., shape=(len(state_observables),), dtype=np.float32),
             "gate_count": spaces.Discrete(self.max_timesteps + 1),
-            "entanglement": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),
+            "entanglement": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),#3bit condition
             #"entanglement_t": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),
-            #"entanglement_a": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),#duobite
+            #"entanglement_a": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32),#>3bite condition
             #"entanglement_b": spaces.Box(low=0., high=1., shape=(1,), dtype=np.float32)
         })
         self.action_space = spaces.Discrete(n=len(action_gates))
@@ -192,9 +192,9 @@ class QuantumArchSearchEnv(gym.Env):
         obs = {
             "expectations": expectations,
             "gate_count": int(gate_count),
-            "entanglement": np.array([current_con], dtype=np.float32)
+            "entanglement": np.array([current_con], dtype=np.float32),#3bit condition
             #"entanglement_t": np.array([s_tot_norm], dtype=np.float32),
-            #"entanglement_a": np.array([s_a_norm], dtype=np.float32),#(多比特只有这个A，没有B)
+            #"entanglement_a": np.array([s_a_norm], dtype=np.float32),#(多比特只有这个A，没有B);>3bit condition
             #"entanglement_b": np.array([s_b_norm], dtype=np.float32)
         }
 
@@ -234,7 +234,7 @@ class QuantumArchSearchEnv(gym.Env):
 
         # compute fidelity
         fidelity = self._get_fidelity()# qubit <= 3,ues it
-        #fidelity = self.fidelity_measure()#多比特使用这个,qubit>3,ues it
+        #fidelity = self.fidelity_measure()#多比特使用这个,if qubit>3,ues it
 
         #diff_F = fidelity - self.previous_fidelity
         #cur_diff_E = abs(self.current_concurrence() - self.target_concurrence())
@@ -250,12 +250,12 @@ class QuantumArchSearchEnv(gym.Env):
         current_con = self.current_concurrence()  # 3bit,use it
 
         # 初始化 entangle_list
-        if not hasattr(self, 'entangle_list'):# Affect efficiency
+        if not hasattr(self, 'entangle_list'):# Affect efficiency, save log of entanglement
             self.entangle_list = []  # 如果不存在则初始化
         # 将 entangle_list 传递给 entangle 方法
         self.entangle(self.entangle_list)
 
-        if not hasattr(self, 'fidelity_list'):#Affect efficiency
+        if not hasattr(self, 'fidelity_list'):#Affect efficiency, save log of F
             self.fidelity_list = []  # 如果不存在则初始化
         # 将 fidelity_list 传递给 fidelity_getlist 方法
         self.fidelity_getlist(self.fidelity_list)
@@ -271,10 +271,10 @@ class QuantumArchSearchEnv(gym.Env):
 
         max_gate_count = self.max_timesteps
         gate_count = len(self.circuit_gates)
-        con_difference = abs(current_con - target_con)
-        #s_tot_norm, s_a_norm, s_b_norm = self._get_renyi()#多比特加入这个
+        con_difference = abs(current_con - target_con)#3bit,use it
+        #s_tot_norm, s_a_norm, s_b_norm = self._get_renyi()#多比特加入这个; if qubit >3,ues it
         #con_difference = (abs(self.s_tot_norm_tar - s_tot_norm) + abs(self.s_a_norm_tar - s_a_norm) + abs(self.s_b_norm_tar - s_b_norm))/3.
-        #con_difference = abs(self.s_a_norm_tar - s_a_norm)#（多比特只用计算这个一项）
+        #con_difference = abs(self.s_a_norm_tar - s_a_norm)#（多比特只用计算这个一项）;if qubit>3, use it
         #con_difference = self._mixed_state_ent_diff()
 
         gate_score = gate_count / max_gate_count
@@ -874,3 +874,4 @@ class QuantumArchSearchEnv(gym.Env):
         s_tot_norm_tar, s_a_norm_tar, s_b_norm_tar = self.calculate_system_and_subsystem_renyi(rho_target, len(self.qubits), 2)
 
         return s_tot_norm_tar, s_a_norm_tar, s_b_norm_tar
+
